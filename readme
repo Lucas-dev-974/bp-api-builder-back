@@ -1,0 +1,56 @@
+# Headless CMS API Builder
+
+Un générateur d'API pour CMS headless construit avec Express, TypeORM et TypeScript.
+
+## Description
+
+Ce projet est un générateur d'API pour CMS headless qui permet de créer rapidement des endpoints RESTful avec une gestion automatique des opérations CRUD. Il utilise une architecture moderne et robuste basée sur Express.js, TypeORM pour la gestion de la base de données, et TypeScript pour un développement plus sûr et maintenable.
+
+## Fonctionnalités
+
+- Génération automatique d'endpoints RESTful
+- Gestion des opérations CRUD pour les entités
+- Documentation API automatique avec Swagger
+- Support de PostgreSQL
+- Architecture modulaire et extensible
+- Middleware de validation et d'authentification
+- Gestion des relations entre entités
+
+## Prérequis
+
+- Node.js (version recommandée : 14.x ou supérieure)
+- PostgreSQL
+- npm ou yarn
+
+## Installation
+
+1. Clonez le repository :
+```bash
+git clone [URL_DU_REPO]
+cd headless-cms-api-builder
+```
+
+2. Installez les dépendances :
+```bash
+npm install
+```
+
+3. Configurez les variables d'environnement :
+Créez un fichier `.env` à la racine du projet avec les variables suivantes :
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+DB_DATABASE=your_database
+PORT=3000
+```
+
+## Scripts disponibles
+
+- `npm run dev` : Lance le serveur en mode développement avec hot-reload
+- `npm run build` : Compile le projet TypeScript
+- `npm start` : Lance le serveur en mode production
+- `npm run typeorm` : Exécute les commandes TypeORM
+
+## Structure du projet
