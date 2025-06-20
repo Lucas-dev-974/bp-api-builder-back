@@ -4,6 +4,7 @@ import { DataSource } from "typeorm";
 import fs from "fs";
 import path from "path";
 import { exec } from "child_process";
+import { DatabaseConnection } from "../interfaces/database.interface";
 
 export class DatabaseController {
     private static readonly RESTART_SCRIPT = path.join(process.cwd(), "restart.bat");
@@ -15,44 +16,40 @@ export class DatabaseController {
      */
     public static async configureCredentials(req: Request, res: Response) {
         try {
-            const { username, password, database, host, port } = req.body;
+            const dbConnectionEntry = req.body as DatabaseConnection;
 
             // Validate required fields
-            if (!this.validateRequiredFields(username, password, database, res)) {
+            if (!DatabaseController.validateRequiredFields(dbConnectionEntry, res)) {
                 return;
             }
 
             // Test database connection
-            if (!await this.testDatabaseConnection(host, port, username, password, database, res)) {
+            if (!await DatabaseController.testDatabaseConnection(dbConnectionEntry, res)) {
                 return;
             }
 
             // Save credentials and restart server
-            await this.saveCredentialsAndRestart(host, port, username, password, database, res);
+            await DatabaseController.saveCredentialsAndRestart(dbConnectionEntry, res);
 
         } catch (error) {
-            this.handleError(error, res);
+            console.log(error);
+            DatabaseController.handleError(error, res);
         }
     }
 
     /**
      * Test database connection
      */
-    private static async testDatabaseConnection(
-        host: string,
-        port: string,
-        username: string,
-        password: string,
-        database: string,
+    private static async testDatabaseConnection(dbConnection: Partial<DatabaseConnection>,
         res: Response
     ): Promise<boolean> {
         const testDataSource = new DataSource({
             type: "postgres",
-            host: host || this.DEFAULT_HOST,
-            port: parseInt(port || this.DEFAULT_PORT),
-            username,
-            password,
-            database,
+            host: dbConnection.host || DatabaseController.DEFAULT_HOST,
+            port: parseInt(String(dbConnection.port || DatabaseController.DEFAULT_PORT)),
+            username: dbConnection.username,
+            password: dbConnection.password,
+            database: dbConnection.database,
             synchronize: false,
             logging: false
         });
@@ -62,41 +59,39 @@ export class DatabaseController {
             await testDataSource.destroy();
             return true;
         } catch (error) {
-            this.handleConnectionError(error, res);
+            DatabaseController.handleConnectionError(error, res);
             return false;
         }
     }
 
     /**
+     * Build .env DB conf information
+     */
+    private static buildEnvDBConfd(dbConnection: Partial<DatabaseConnection>) {
+        return `
+DB_HOST=${dbConnection.host || DatabaseController.DEFAULT_HOST}
+DB_PORT=${dbConnection.port || DatabaseController.DEFAULT_PORT}
+DB_USERNAME=${dbConnection.username}
+DB_PASSWORD=${dbConnection.password}
+DB_DATABASE=${dbConnection.database}
+        `.trim();
+    }
+    /**
      * Save credentials and restart server
      */
-    private static async saveCredentialsAndRestart(
-        host: string,
-        port: string,
-        username: string,
-        password: string,
-        database: string,
-        res: Response
-    ) {
+    private static async saveCredentialsAndRestart(dbConnection: Partial<DatabaseConnection>, res: Response) {
         const envPath = path.resolve(process.cwd(), ".env");
-        const envContent = `
-DB_HOST=${host || this.DEFAULT_HOST}
-DB_PORT=${port || this.DEFAULT_PORT}
-DB_USERNAME=${username}
-DB_PASSWORD=${password}
-DB_DATABASE=${database}
-        `.trim();
-
+        const envContent = DatabaseController.buildEnvDBConfd(dbConnection)
         fs.writeFileSync(envPath, envContent);
 
         // Execute restart script
-        exec(`start /min "" "${this.RESTART_SCRIPT}"`, (error) => {
+        exec(`start /min "" "${DatabaseController.RESTART_SCRIPT}"`, (error) => {
             if (error) {
                 console.error("Failed to execute restart script:", error);
             }
         });
 
-        res.json({
+        res.status(200).json({
             message: "Database credentials saved successfully",
             status: "server restart"
         });
@@ -105,13 +100,8 @@ DB_DATABASE=${database}
     /**
      * Validate required fields
      */
-    private static validateRequiredFields(
-        username: string,
-        password: string,
-        database: string,
-        res: Response
-    ): boolean {
-        if (!username || !password || !database) {
+    private static validateRequiredFields(dbConnection: Partial<DatabaseConnection>, res: Response): boolean {
+        if (!dbConnection.username || !dbConnection.password || !dbConnection.database) {
             res.status(400).json({
                 error: "Missing required database credentials",
                 required: ["username", "password", "database"]
@@ -154,10 +144,21 @@ DB_DATABASE=${database}
      * Get database status
      */
     public static async getStatus(req: Request, res: Response) {
+
         try {
             const isInitialized = AppDataSource.isInitialized;
-            const credentials = this.getDatabaseCredentials();
+            console.log('locals:', res.locals);
 
+            if (res.locals.superUserCount == 0) {
+                res.status(200).json({ status: "create super user" })
+                return
+            }
+            if (!isInitialized) {
+                res.status(200).json({ status: "disconnected" })
+                return
+            }
+
+            const credentials = DatabaseController.getDatabaseCredentials();
             res.json({
                 status: isInitialized ? "connected" : "disconnected",
                 credentials: credentials ? {
@@ -184,6 +185,7 @@ DB_DATABASE=${database}
             if (!fs.existsSync(envPath)) {
                 return null;
             }
+
 
             const envContent = fs.readFileSync(envPath, "utf-8");
             const credentials: any = {};
