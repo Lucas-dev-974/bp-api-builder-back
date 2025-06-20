@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import { AppDataSource } from "../config/typeorm.config";
+import { AppDataSource, getRepo } from "../config/typeorm.config";
 import { SuperUser } from "../entities/SuperUser.entity";
 import { Like } from "typeorm";
 import { JwtService } from "../services/jwt.service";
 
 export class SuperUserController {
-    private static superUserRepository = AppDataSource.getRepository(SuperUser);
+    private static superUserRepository = () => getRepo(SuperUser);
 
     /**
      * Create a new super user
@@ -13,20 +13,25 @@ export class SuperUserController {
     public static async create(req: Request, res: Response) {
         try {
             const { email, password, firstName, lastName, roles } = req.body;
-
+            console.log(req.body);
+            const repo = AppDataSource.getRepository(SuperUser)
             // Check if user already exists
-            const existingUser = await this.superUserRepository.findOne({
+            const existingUser = await repo.findOne({
                 where: { email }
             });
 
+
             if (existingUser) {
+                console.log("use exist");
                 return res.status(400).json({
-                    error: "User already exists with this email"
+                    error: "User already exists with SuperUserController email"
                 });
             }
 
+            console.log(SuperUserController.superUserRepository());
+
             // Create new user
-            const superUser = this.superUserRepository.create({
+            const superUser = SuperUserController.superUserRepository().create({
                 email,
                 password,
                 firstName,
@@ -34,10 +39,10 @@ export class SuperUserController {
                 roles: roles || []
             });
 
-            await this.superUserRepository.save(superUser);
+            await SuperUserController.superUserRepository().save(superUser);
 
             // Generate token for new user
-            const token = JwtService.generateToken(superUser);
+            const token = JwtService.generateToken(superUser as SuperUser);
 
             res.status(201).json({
                 user: superUser.toJSON(),
@@ -67,7 +72,7 @@ export class SuperUserController {
                 ]
                 : {};
 
-            const [users, total] = await this.superUserRepository.findAndCount({
+            const [users, total] = await SuperUserController.superUserRepository().findAndCount({
                 where,
                 skip,
                 take: Number(limit),
@@ -97,7 +102,7 @@ export class SuperUserController {
     public static async getById(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            const user = await this.superUserRepository.findOne({
+            const user = await SuperUserController.superUserRepository().findOne({
                 where: { id }
             });
 
@@ -124,7 +129,7 @@ export class SuperUserController {
             const { id } = req.params;
             const { email, password, firstName, lastName, isActive, roles } = req.body;
 
-            const user = await this.superUserRepository.findOne({
+            const user = await SuperUserController.superUserRepository().findOne({
                 where: { id }
             });
 
@@ -136,7 +141,7 @@ export class SuperUserController {
 
             // Check if email is being changed and if it's already taken
             if (email && email !== user.email) {
-                const existingUser = await this.superUserRepository.findOne({
+                const existingUser = await SuperUserController.superUserRepository().findOne({
                     where: { email }
                 });
 
@@ -157,7 +162,7 @@ export class SuperUserController {
                 roles: roles || user.roles
             });
 
-            await this.superUserRepository.save(user);
+            await SuperUserController.superUserRepository().save(user);
 
             res.json(user.toJSON());
         } catch (error) {
@@ -174,7 +179,7 @@ export class SuperUserController {
     public static async delete(req: Request, res: Response) {
         try {
             const { id } = req.params;
-            const user = await this.superUserRepository.findOne({
+            const user = await SuperUserController.superUserRepository().findOne({
                 where: { id }
             });
 
@@ -184,7 +189,7 @@ export class SuperUserController {
                 });
             }
 
-            await this.superUserRepository.remove(user);
+            await SuperUserController.superUserRepository().remove(user);
 
             res.json({
                 message: "Super user deleted successfully"
@@ -204,9 +209,9 @@ export class SuperUserController {
         try {
             const { email, password } = req.body;
 
-            const user = await this.superUserRepository.findOne({
+            const user: SuperUser = await SuperUserController.superUserRepository().findOne({
                 where: { email }
-            });
+            }) as SuperUser;
 
             if (!user) {
                 return res.status(401).json({
@@ -215,7 +220,6 @@ export class SuperUserController {
             }
 
             const isValidPassword = await user.validatePassword(password);
-
             if (!isValidPassword) {
                 return res.status(401).json({
                     error: "Invalid credentials"
@@ -230,10 +234,10 @@ export class SuperUserController {
 
             // Update last login
             user.lastLoginAt = new Date();
-            await this.superUserRepository.save(user);
+            await SuperUserController.superUserRepository().save(user);
 
             // Generate JWT token
-            const token = JwtService.generateToken(user);
+            const token = JwtService.generateToken(user as SuperUser);
 
             res.json({
                 user: user.toJSON(),
