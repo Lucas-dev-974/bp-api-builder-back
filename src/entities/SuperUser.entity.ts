@@ -42,7 +42,6 @@ export class SuperUser {
     updatedAt: Date;
 
     @BeforeInsert()
-    @BeforeUpdate()
     async hashPassword() {
         // Only hash the password if it has been modified
         if (this.password) {
