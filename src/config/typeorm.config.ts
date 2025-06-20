@@ -15,4 +15,9 @@ export const AppDataSource = new DataSource({
   entities: ["src/entities/**/*.ts"],
   migrations: ["src/migrations/**/*.ts"],
   subscribers: ["src/subscribers/**/*.ts"],
-}); 
+});
+
+
+export function getRepo(entity: any) {
+  return AppDataSource.getRepository(entity);
+}
