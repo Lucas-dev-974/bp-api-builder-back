@@ -26,18 +26,15 @@ app.use(express.json());
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// Setup API Routes
-app.use("/api/database", databaseRoutes);
-app.use("/api/super-users", superUserRoutes);
-
 // Check database credentials
 if (!process.env.DB_USERNAME || !process.env.DB_PASSWORD || !process.env.DB_DATABASE) {
-  console.warn("Database credentials not configured!");
-  console.log("Please configure database credentials using POST /api/database/credentials");
   // Start server
   app.listen(PORT, () => {
-    console.log(`Server is running on  localhost::${PORT}`);
-    console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
+    console.log(`Server is running on   http://localhost::${PORT}`);
+    console.log(`Please configure database credentials using POST  http://localhost:${PORT}/api/database/credentials`);
+
+    // Setup API Routes
+    app.use("/api/database", databaseRoutes);
   });
 } else {
   // Initialize TypeORM only if credentials are present
@@ -45,21 +42,28 @@ if (!process.env.DB_USERNAME || !process.env.DB_PASSWORD || !process.env.DB_DATA
     .then(async () => {
       console.log("Database connection established");
 
-      // Check if super user exists before proceeding with other routes
-      app.use(checkSuperUserExists);
 
-      // Apply authentication middleware
-      app.use(authenticate);
-
-      app.use("/api", dynamicEntityRoutes);
-      app.use("/api", routeRoutes);
-      app.use("/api", middlewareRoutes);
-      app.use("/api", controllerRoutes);
-
-      // Load dynamic routes from database
-      // await RouteLoader.loadRoutes(app);
       // Start server
       app.listen(PORT, () => {
+
+        // Check if super user exists before proceeding with other routes
+        app.use(checkSuperUserExists);
+
+        // Apply authentication middleware
+        app.use("/api/database", databaseRoutes);
+        app.use("/api/super-users", superUserRoutes);
+
+        app.use(authenticate);
+
+
+        app.use("/api", dynamicEntityRoutes);
+        app.use("/api", routeRoutes);
+        app.use("/api", middlewareRoutes);
+        app.use("/api", controllerRoutes);
+
+
+        // Load dynamic routes from database
+        // await RouteLoader.loadRoutes(app);
         console.log(`Server is running on  localhost::${PORT}`);
         console.log(`Swagger documentation available at http://localhost:${PORT}/api-docs`);
       });
