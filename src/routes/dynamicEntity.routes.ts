@@ -85,7 +85,7 @@ const dynamicEntityController = new DynamicEntityController();
  *       500:
  *         description: Server error
  */
-router.post("/entities", dynamicEntityController.create);
+router.post("/", dynamicEntityController.create);
 
 /**
  * @swagger
@@ -105,7 +105,7 @@ router.post("/entities", dynamicEntityController.create);
  *       500:
  *         description: Server error
  */
-router.get("/entities", dynamicEntityController.findAll);
+router.get("/", dynamicEntityController.findAll);
 
 /**
  * @swagger
@@ -132,7 +132,7 @@ router.get("/entities", dynamicEntityController.findAll);
  *       500:
  *         description: Server error
  */
-router.get("/entities/:id", dynamicEntityController.findOne);
+router.get("/:id", dynamicEntityController.findOne);
 
 
 /**
@@ -156,7 +156,7 @@ router.get("/entities/:id", dynamicEntityController.findOne);
  *       500:
  *         description: Server error
  */
-router.delete("/entities/:id", dynamicEntityController.delete);
+router.delete("/:id", dynamicEntityController.delete);
 
 /**
  * @swagger
@@ -194,7 +194,7 @@ router.delete("/entities/:id", dynamicEntityController.delete);
  *       500:
  *         description: Server error
  */
-router.patch("/entities/:name/columns", dynamicEntityController.updateColumns);
+router.patch("/:name/columns", dynamicEntityController.updateColumns);
 
 /**
  * @swagger
@@ -233,7 +233,7 @@ router.patch("/entities/:name/columns", dynamicEntityController.updateColumns);
  *       500:
  *         description: Server error
  */
-router.post("/entities/:name/columns", dynamicEntityController.addColumn);
+router.post("/:name/columns", dynamicEntityController.addColumn);
 
 /**
  * @swagger

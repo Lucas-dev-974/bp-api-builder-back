@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { AppDataSource } from "../config/typeorm.config";
-import { SuperUser } from "../entities/SuperUser.entity";
+import { SuperUser } from "../entities/SuperUser";
+import { isPublicRoute } from "./public.route";
 
 export async function checkSuperUserExists(req: Request, res: Response, next: NextFunction) {
     try {
@@ -8,15 +9,10 @@ export async function checkSuperUserExists(req: Request, res: Response, next: Ne
         const superUserRepository = AppDataSource.getRepository(SuperUser);
         const superUserCount = await superUserRepository.count();
 
-        if (
-            req.path === "/api/super-users" &&
-            req.method === "POST" ||
-            req.path === "/api/super-users/login" &&
-            req.method === "POST" ||
-            req.method === "GET" && req.path == "/api/database/status" && superUserCount != 0
-        ) {
-            return next();
-        }
+        if (isPublicRoute(req) ||
+            req.method == "POST" && req.path == "/api/admin" && superUserCount == 0 ||
+            req.method == "GET" && req.path == "/api/database"
+        ) return next()
 
 
         if (superUserCount === 0) {
@@ -26,7 +22,7 @@ export async function checkSuperUserExists(req: Request, res: Response, next: Ne
                 message: "Please create a super user first",
                 action: {
                     method: "POST",
-                    url: "/api/super-users",
+                    url: "/api/admin",
                     body: {
                         email: "string",
                         password: "string",

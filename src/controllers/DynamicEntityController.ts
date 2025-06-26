@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import { entityClassManager } from "../utils/EntityClassManager";
+import { entitiesManager } from "../utils/EntityClassManager";
 
 export class DynamicEntityController {
   async create(req: Request, res: Response) {
     try {
       const { name, schema } = req.body;
-      await entityClassManager.createTable(name, schema);
+      await entitiesManager.createTable(name, schema);
       return res.status(201).json({
         message: `Table ${name} created successfully`,
         schema
@@ -17,7 +17,7 @@ export class DynamicEntityController {
 
   async findAll(req: Request, res: Response) {
     try {
-      const tables = await entityClassManager.getAllTables();
+      const tables = await entitiesManager.getAllTables();
       return res.json(tables);
     } catch (error) {
       return res.status(500).json({ message: "Error fetching tables", error });
@@ -27,7 +27,7 @@ export class DynamicEntityController {
   async findOne(req: Request, res: Response) {
     try {
       const { name } = req.params;
-      const repository = entityClassManager.getRepository(name);
+      const repository = entitiesManager.getRepository(name);
       const data = await repository.find();
       return res.json(data);
     } catch (error) {
@@ -38,7 +38,7 @@ export class DynamicEntityController {
   async delete(req: Request, res: Response) {
     try {
       const { name } = req.params;
-      await entityClassManager.dropTable(name);
+      await entitiesManager.dropTable(name);
       return res.status(204).send();
     } catch (error) {
       return res.status(500).json({ message: "Error deleting table", error });
@@ -49,7 +49,7 @@ export class DynamicEntityController {
     try {
       const { name } = req.params;
       const { columns } = req.body;
-      await entityClassManager.updateColumnsOfTable(name, columns);
+      await entitiesManager.updateColumnsOfTable(name, columns);
       return res.status(200).json({
         message: `Columns updated successfully for table ${name}`,
         columns
@@ -63,7 +63,7 @@ export class DynamicEntityController {
     try {
       const { name } = req.params;
       const { columnName, columnType } = req.body;
-      await entityClassManager.addColumn(name, columnName, columnType);
+      await entitiesManager.addColumn(name, columnName, columnType);
       return res.status(201).json({
         message: `Column ${columnName} added successfully to table ${name}`,
         column: { name: columnName, type: columnType }
@@ -76,7 +76,7 @@ export class DynamicEntityController {
   async removeColumn(req: Request, res: Response) {
     try {
       const { name, columnName } = req.params;
-      await entityClassManager.removeColumn(name, columnName);
+      await entitiesManager.removeColumn(name, columnName);
       return res.status(204).send();
     } catch (error) {
       return res.status(500).json({ message: "Error removing column", error: error.message });

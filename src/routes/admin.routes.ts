@@ -1,5 +1,5 @@
+import { SuperUserController } from "../controllers/SuperUserController";
 import { Router } from "express";
-import { SuperUserController } from "../controllers/superUser.controller";
 
 const router = Router();
 

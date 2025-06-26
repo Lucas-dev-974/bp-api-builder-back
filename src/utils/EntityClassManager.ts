@@ -1,43 +1,35 @@
+import { log } from "console";
 import { AppDataSource } from "../config/typeorm.config";
-import { DataSource } from "typeorm";
-import { Table, TableColumn } from "typeorm";
+import { DataSource, EntitySchema, Table, ColumnType, } from "typeorm";
+import { TableColumn } from "typeorm";
+import { EntityInputFields } from "src/controllers/ApisController";
 
-class EntityClassManager {
-    private static instance: EntityClassManager;
-    private entityClasses: Map<string, any> = new Map();
+export class EntitiesManager {
+    public entities: Map<string, Partial<EntitySchema>> = new Map();
+    private static instance: EntitiesManager;
     private dataSource: DataSource;
 
     private constructor() {
         this.dataSource = AppDataSource;
     }
 
-    public static getInstance(): EntityClassManager {
-        if (!EntityClassManager.instance) {
-            EntityClassManager.instance = new EntityClassManager();
+    public static getInstance(): EntitiesManager {
+        if (!EntitiesManager.instance) {
+            EntitiesManager.instance = new EntitiesManager();
         }
-        return EntityClassManager.instance;
+        return EntitiesManager.instance;
     }
 
-    public createEntityClass(name: string, schema: Record<string, any>): any {
-        // Créer une classe d'entité dynamique
-        const EntityClass = class {
-            id: number;
-            [key: string]: any;
-        };
+    public createEntity(name: string, schema: Record<string, any>): any {
+        const entitie: Partial<EntitySchema> = {
+            options: {
+                name: name,
+                columns: {}
+            }
+        }
+        this.entities.set(name, entitie)
+        return entitie
 
-        // Ajouter les propriétés basées sur le schéma
-        Object.entries(schema).forEach(([key, value]) => {
-            EntityClass.prototype[key] = value;
-        });
-
-        // Enregistrer la classe dans le Map
-        this.entityClasses.set(name, EntityClass);
-
-        return EntityClass;
-    }
-
-    public getEntityClass(name: string): any {
-        return this.entityClasses.get(name);
     }
 
     private async verifyExistingTable(name: string): Promise<boolean> {
@@ -52,11 +44,16 @@ class EntityClassManager {
         }
     }
 
-    public async createTable(name: string, schema: Record<string, any>): Promise<void> {
+    public cleanTableName(name: string) {
+        if (!name.startsWith("api_entity_")) return name
+        return name.split("_")[2]
+    }
+
+    public async createTable(name: string, schema: EntityInputFields): Promise<void> {
+
         const tableExists = await this.verifyExistingTable(name);
-        if (tableExists) {
-            throw new Error(`Table ${name} already exists`);
-        }
+        if (tableExists) throw new Error(`Table ${name} already exists`);
+
 
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
@@ -71,19 +68,22 @@ class EntityClassManager {
                     isGenerated: true,
                     generationStrategy: 'increment' as const
                 },
-                ...Object.entries(schema).map(([key, value]) => ({
-                    name: key,
-                    type: this.mapJsTypeToPostgresType(value)
+                ...schema.map(item => ({
+                    name: item.name,
+                    type: this.mapJsTypeToPostgresType(item.type)
                 }))
             ];
 
             await queryRunner.createTable(
                 new Table({
-                    name: name.toLowerCase(),
+                    name: name,
                     columns: columns
                 })
             );
             await queryRunner.commitTransaction();
+            await this.buildEntities()
+            const entitySchema = await this.getTableFromDb(name)
+            this.entities.set(this.cleanTableName(name), entitySchema as Partial<EntitySchema>)
         } catch (error) {
             await queryRunner.rollbackTransaction();
             throw error;
@@ -93,11 +93,11 @@ class EntityClassManager {
     }
 
     public getRepository(name: string) {
-        const EntityClass = this.getEntityClass(name);
-        if (!EntityClass) {
-            throw new Error(`Entity class ${name} not found`);
+        const entitySchema = this.getEntitySchema(name);
+        if (!entitySchema) {
+            throw new Error(`Entity ${name} not found`);
         }
-        return this.dataSource.getRepository(EntityClass);
+        return this.dataSource.getRepository(entitySchema.options?.name as string);
     }
 
     public async dropTable(name: string): Promise<void> {
@@ -113,7 +113,7 @@ class EntityClassManager {
         try {
             await queryRunner.dropTable(name.toLowerCase());
             await queryRunner.commitTransaction();
-            this.entityClasses.delete(name);
+            this.entities.delete(name);
         } catch (error) {
             await queryRunner.rollbackTransaction();
             throw error;
@@ -290,6 +290,56 @@ class EntityClassManager {
             await queryRunner.release();
         }
     }
+
+    /**
+     * Construit des schémas d'entités TypeORM à partir des tables existantes en base de données.
+     * @returns Une promesse qui se résout en un tableau de EntitySchema.
+     */
+    public async buildEntities() {
+        const tables = await this.getAllTables();
+        tables.forEach(table => {
+            this.entities.set(this.cleanTableName(table.name), table.schema)
+        })
+    }
+
+    public getEntitySchema(name: string): Partial<EntitySchema> | undefined {
+        const fields = this.entities.get(this.cleanTableName(name));
+        if (!fields) return undefined;
+        return fields
+    }
+
+    public async getTableFromDb(tableName: string): Promise<Partial<EntitySchema> | undefined> {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+
+        try {
+            const table = await queryRunner.getTable(tableName.toLowerCase());
+            if (!table) {
+                return undefined;
+            }
+
+            // Construction des colonnes pour EntitySchema
+            const columns: Record<string, any> = {};
+            table.columns.forEach(col => {
+                columns[col.name] = {
+                    type: col.type,
+                    primary: col.isPrimary,
+                    generated: col.isGenerated ? (col.generationStrategy || true) : false,
+                    nullable: col.isNullable,
+                    default: col.default,
+                    unique: col.isUnique
+                };
+            });
+
+            return new EntitySchema({
+                name: tableName,
+                tableName: tableName.toLowerCase(),
+                columns
+            });
+        } finally {
+            await queryRunner.release();
+        }
+    }
 }
 
-export const entityClassManager = EntityClassManager.getInstance();
+export const entitiesManager = EntitiesManager.getInstance();

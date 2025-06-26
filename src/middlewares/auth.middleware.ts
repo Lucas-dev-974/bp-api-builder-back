@@ -1,33 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { JwtService } from "../services/jwt.service";
+import { isPublicRoute } from "./public.route";
 
-// Routes publiques qui ne nécessitent pas d'authentification
-const publicRoutes = [
-    { path: "/api/super-users", method: "POST" }, // Création de super utilisateur
-    { path: "/api/super-users/login", method: "POST" }, // Login
-    { path: "/api/database/credentials", method: "POST" }, // Configuration DB
-    { path: "/api/database/status", method: "GET" }, // Status DB
-    { path: "/api-docs", method: "GET" }, // Documentation Swagger
-];
 
-export const authenticate = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-) => {
+
+export async function authenticate(req: Request, res: Response, next: NextFunction) {
+    if (isPublicRoute(req)) return next();
     try {
-        // Vérifier si la route est publique
-        const isPublicRoute = publicRoutes.some(
-            route =>
-                req.path.startsWith(route.path) &&
-                req.method === route.method
-        );
-
-        if (isPublicRoute) {
-            return next();
-        }
-
-        // Vérifier le token
         const authHeader = req.headers.authorization;
         if (!authHeader) {
             return res.status(401).json({

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { AppDataSource, getRepo } from "../config/typeorm.config";
-import { SuperUser } from "../entities/SuperUser.entity";
+import { SuperUser } from "../entities/SuperUser";
 import { Like } from "typeorm";
 import { JwtService } from "../services/jwt.service";
 
